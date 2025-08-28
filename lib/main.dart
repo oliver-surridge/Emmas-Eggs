@@ -5,6 +5,7 @@ void main() {
   runApp(const MaterialApp(home: EggTimerStart()));
 }
 
+///Splash Screen
 class EggTimerStart extends StatelessWidget {
   const EggTimerStart({super.key});
 
@@ -14,7 +15,7 @@ class EggTimerStart extends StatelessWidget {
         body: Container(
       decoration: BoxDecoration(
         image: DecorationImage(
-          image: AssetImage('assets/background.jpg'), // Path to your image
+          image: AssetImage('assets/background.jpg'),
           fit: BoxFit.cover, // Covers the entire screen
         ),
       ),
@@ -40,7 +41,7 @@ class EggTimerStart extends StatelessWidget {
             ),
           ),
           child: Text(
-            'Eggter',
+            'Emm-ter',
             style: TextStyle(
               fontSize: 30,
               fontWeight: FontWeight.bold,
@@ -64,10 +65,18 @@ class _EggTimerMainState extends State<EggTimerMain> {
   int _selectedHardness = 0;
   //final is the same as const but is set once it is initialized rather than on compilation like const
   final List<String> _hardness = ["Soft", "Medium", "Hard"];
-  bool _start = false;
+  static const List<int> _boilTimes = [360, 480, 720];
+  int _boilTime = _boilTimes[0];
+  bool _isRunning = false;
   int _seconds = 360;
-  int _boilTime = 360;
   Timer? _timer;
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
   //using this to get the colour of the timer and buttons
   Color _getProgressColor() {
     switch (_selectedHardness) {
@@ -83,7 +92,7 @@ class _EggTimerMainState extends State<EggTimerMain> {
   }
 
   //method called to start the timer
-  void startTimer() {
+  void _startTimer() {
     if (_timer != null && _timer!.isActive) return; // Prevent multiple timers
     _timer = Timer.periodic(Duration(seconds: 1), (_) {
       setState(() {
@@ -91,20 +100,27 @@ class _EggTimerMainState extends State<EggTimerMain> {
           //making sure we cant start the timer with no time remaining
           _seconds--;
         } else {
-          stopTimer(); // Stop when it reaches 0
+          _stopTimer(); // Stop when it reaches 0
         }
       });
     });
   }
 
+  ///formats the timer to mm:ss format
+  String _formatTimer(int time) {
+    final minutes = time ~/ 60; //truncated integer division
+    final seconds = time % 60;
+    return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
+  }
+
   //method called to stop the timer
-  void stopTimer() {
+  void _stopTimer() {
     _timer?.cancel();
   }
 
-  void resetTimer() {
+  void _resetTimer() {
     _timer?.cancel();
-    _seconds = _boilTime;
+    _seconds = _boilTimes[_selectedHardness];
   }
 
   @override
@@ -113,99 +129,104 @@ class _EggTimerMainState extends State<EggTimerMain> {
       //the entire page
       appBar: AppBar(
         //bar at top of the page, automatically has a callback to the previous page
-        title: Text("Emma's Eggs"),
-        backgroundColor: Colors.yellow,
+        title: const Text("Emma's Eggs"),
+        backgroundColor: Colors.amber,
       ),
+      backgroundColor: Color.fromARGB(255, 255, 243, 190),
       body: Column(
         //a vertical container - use a ListView if there is not enough room for vertical content
         children: [
           Padding(
-            //like a 'gap' in powerapps, pads around all sides of the children
-            padding: const EdgeInsets.all(8.0),
-            child: Wrap(
-              spacing: 10,
-              alignment: WrapAlignment.center,
-              children: List.generate(_hardness.length, (eggdex) {
-                //we can generate one item for each hardness option - eggdex is what I called the index
-                return ChoiceChip(
-                  label: Text(_hardness[eggdex]),
-                  selected: _selectedHardness == eggdex,
-                  selectedColor: _getProgressColor(),
-                  onSelected: (bool selected) {
-                    setState(() {
-                      if (selected == true) {
-                        _selectedHardness = eggdex;
-                        _boilTime = [360, 480, 720][_selectedHardness];
-                        _seconds = _boilTime;
-                      } else {
-                        _selectedHardness = _selectedHardness;
-                      }
-                    });
-                  },
-                );
-              }),
-            ),
-          ),
-          Expanded(
-              child: Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Stack(
-                    fit: StackFit.loose,
-                    alignment: Alignment.center,
-                    children: [
-                      SizedBox(
-                        width: 150,
-                        height: 200, //make it egg shaped
-                        //because we are using a stack, we are able to see the progress indicator around the timer value
-                        child: CircularProgressIndicator(
-                          value: _boilTime > 0
-                              ? _seconds / _boilTime
-                              : 0, //the rate that the indicator is decremented, set _boilTime to 0 if null
-                          strokeWidth: 20,
-                          backgroundColor: Colors.white,
-                          valueColor: AlwaysStoppedAnimation<Color>(
-                              _getProgressColor()),
-                        ),
-                      ),
-                      Text(
-                        //the actual timer value displayed through text
-                        '$_seconds',
-                        style: TextStyle(
-                          fontSize: 60,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ]),
-                SizedBox(height: 80),
-                ElevatedButton(
-                  //Start button that turns into a pause button
-                  onPressed: () {
-                    setState(() {
-                      if (_start) {
-                        resetTimer();
-                      } else {
-                        startTimer();
-                      }
-                      _start = !_start;
-                    });
-                  },
-                  child: Text(
-                    _start ? 'Stop' : 'Boil Em!',
-                    style: TextStyle(
-                      fontSize: 30,
-                      fontWeight: FontWeight.bold,
-                      color: const Color.fromRGBO(0, 0, 0, 1),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          )),
+              //like a 'gap' in powerapps, pads around all sides of the children
+              padding: const EdgeInsets.all(8.0),
+              child: _buildHardnessSelector()),
+          Expanded(child: _buildEggTimer()),
         ],
       ),
-      backgroundColor: Color.fromARGB(225, 225, 159, 107),
+    );
+  }
+
+  Widget _buildHardnessSelector() {
+    return Wrap(
+      spacing: 10,
+      alignment: WrapAlignment.center,
+      children: List.generate(_hardness.length, (index) {
+        //generate one item for each hardness option
+        return ChoiceChip(
+          label: Text(_hardness[index]),
+          selected: _selectedHardness == index,
+          selectedColor: _getProgressColor(),
+          onSelected: (bool selected) {
+            setState(() {
+              if (selected == true) {
+                _selectedHardness = index;
+                _boilTime = _boilTimes[_selectedHardness];
+                _seconds = _boilTime;
+              }
+            });
+          },
+        );
+      }),
+    );
+  }
+
+  Widget _buildEggTimer() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Stack(fit: StackFit.loose, alignment: Alignment.center, children: [
+            SizedBox(
+              width: 150,
+              height: 200, //make it egg shaped
+              //because we are using a stack, we are able to see the progress indicator around the timer value
+              child: CircularProgressIndicator(
+                value: _boilTime > 0
+                    ? _seconds / _boilTime
+                    : 0, //the rate that the indicator is decremented, set _boilTime to 0 if null
+                strokeWidth: 20,
+                backgroundColor: Colors.white,
+                valueColor: AlwaysStoppedAnimation<Color>(_getProgressColor()),
+              ),
+            ),
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 300),
+              transitionBuilder: (child, anim) =>
+                  ScaleTransition(scale: anim, child: child),
+              child: Text(
+                //the actual timer value displayed through text
+                _formatTimer(_seconds),
+                style: const TextStyle(
+                  fontSize: 40,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ]),
+          const SizedBox(
+            height: 80,
+          ),
+          ElevatedButton(
+            //Start button that turns into a pause button
+            onPressed: () {
+              setState(() {
+                if (_isRunning) {
+                  _resetTimer();
+                } else {
+                  _startTimer();
+                }
+                _isRunning = !_isRunning;
+              });
+            },
+            child: Text(
+              _isRunning ? 'Stop' : 'Boil Em!',
+              style: const TextStyle(
+                fontSize: 30, fontWeight: FontWeight.bold, color: Colors.black,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
