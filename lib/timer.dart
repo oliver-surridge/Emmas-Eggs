@@ -14,7 +14,6 @@ class _EggTimerMainState extends State<EggTimerMain> {
   final List<String> _hardness = ["Soft", "Medium", "Hard"];
   static const List<int> _boilTimes = [360, 480, 720];
   int _boilTime = _boilTimes[0];
-  bool _isRunning = false;
   int _seconds = 360;
   Timer? _timer;
 
@@ -32,7 +31,7 @@ class _EggTimerMainState extends State<EggTimerMain> {
       case 1:
         return const Color.fromRGBO(255, 235, 59, 1); // Medium
       case 2:
-        return const Color.fromRGBO(255, 248, 225, 1); // Hard
+        return const Color.fromARGB(255, 255, 223, 118); // Hard
       default:
         return Colors.orange; // Fallback
     }
@@ -53,25 +52,33 @@ class _EggTimerMainState extends State<EggTimerMain> {
     });
   }
 
-  ///formats the timer to mm:ss format
+  ///formats to mm:ss format
   String _formatTimer(int time) {
     final minutes = time ~/ 60; //truncated integer division
     final seconds = time % 60;
     return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
   }
 
-  //method called to stop the timer
+  ///stop the timer
   void _stopTimer() {
     _timer?.cancel();
   }
 
+  ///reset timer
   void _resetTimer() {
-    _timer?.cancel();
+    _stopTimer();
     _seconds = _boilTimes[_selectedHardness];
+  }
+
+  ///check timer status
+  bool _isTimerActive() {
+    return _timer?.isActive ?? false; //if null, false
   }
 
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final screenHeight = MediaQuery.of(context).size.height;
     return Scaffold(
       //the entire page
       appBar: AppBar(
@@ -84,18 +91,19 @@ class _EggTimerMainState extends State<EggTimerMain> {
         //a vertical container - use a ListView if there is not enough room for vertical content
         children: [
           Padding(
-              //like a 'gap' in powerapps, pads around all sides of the children
-              padding: const EdgeInsets.all(8.0),
-              child: _buildHardnessSelector()),
-          Expanded(child: _buildEggTimer()),
+            //like a 'gap' in powerapps, pads around all sides of the children
+            padding: EdgeInsets.all(screenWidth / 50),
+            child: _buildHardnessSelector(screenWidth),
+          ),
+          Expanded(child: _buildEggTimer(screenWidth, screenHeight)),
         ],
       ),
     );
   }
 
-  Widget _buildHardnessSelector() {
+  Widget _buildHardnessSelector(double screenWidth) {
     return Wrap(
-      spacing: 10,
+      spacing: screenWidth / 20,
       alignment: WrapAlignment.center,
       children: List.generate(_hardness.length, (index) {
         //generate one item for each hardness option
@@ -106,6 +114,9 @@ class _EggTimerMainState extends State<EggTimerMain> {
           onSelected: (bool selected) {
             setState(() {
               if (selected == true) {
+                if (_isTimerActive()) {
+                  _resetTimer();
+                }
                 _selectedHardness = index;
                 _boilTime = _boilTimes[_selectedHardness];
                 _seconds = _boilTime;
@@ -117,58 +128,56 @@ class _EggTimerMainState extends State<EggTimerMain> {
     );
   }
 
-  Widget _buildEggTimer() {
+  Widget _buildEggTimer(double screenWidth, double screenHeight) {
+    final eggWidth = screenWidth * 0.5;
+    final eggHeight = screenHeight * 0.35;
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Stack(fit: StackFit.loose, alignment: Alignment.center, children: [
             SizedBox(
-              width: 150,
-              height: 200, //make it egg shaped
+              width: eggWidth,
+              height: eggHeight, //make it egg shaped
               //because we are using a stack, we are able to see the progress indicator around the timer value
               child: CircularProgressIndicator(
                 value: _boilTime > 0
                     ? _seconds / _boilTime
                     : 0, //the rate that the indicator is decremented, set _boilTime to 0 if null
-                strokeWidth: 20,
+                strokeWidth: eggWidth / 15,
                 backgroundColor: Colors.white,
                 valueColor: AlwaysStoppedAnimation<Color>(_getProgressColor()),
               ),
             ),
-            AnimatedSwitcher(
-              duration: const Duration(milliseconds: 300),
-              transitionBuilder: (child, anim) =>
-                  ScaleTransition(scale: anim, child: child),
-              child: Text(
-                //the actual timer value displayed through text
-                _formatTimer(_seconds),
-                style: const TextStyle(
-                  fontSize: 40,
-                  fontWeight: FontWeight.bold,
-                ),
+            Text(
+              //the actual timer value displayed through text
+              _formatTimer(_seconds),
+              style: TextStyle(
+                fontSize: eggHeight / 6,
+                fontWeight: FontWeight.bold,
               ),
             ),
           ]),
-          const SizedBox(
-            height: 80,
+          SizedBox(
+            height: eggHeight / 2,
           ),
           ElevatedButton(
             //Start button that turns into a pause button
             onPressed: () {
               setState(() {
-                if (_isRunning) {
+                if (_isTimerActive()) {
                   _resetTimer();
                 } else {
                   _startTimer();
                 }
-                _isRunning = !_isRunning;
               });
             },
             child: Text(
-              _isRunning ? 'Stop' : 'Boil Em!',
-              style: const TextStyle(
-                fontSize: 30, fontWeight: FontWeight.bold, color: Colors.black,
+              _isTimerActive() ? 'Stop' : 'Boil Em!',
+              style: TextStyle(
+                fontSize: screenHeight/25,
+                fontWeight: FontWeight.bold,
+                color: Colors.black,
               ),
             ),
           ),
