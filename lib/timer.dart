@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
 
+import 'package:flutter/services.dart';
+
 class EggTimerMain extends StatefulWidget {
   const EggTimerMain({super.key});
 
@@ -77,8 +79,10 @@ class _EggTimerMainState extends State<EggTimerMain> {
 
   @override
   Widget build(BuildContext context) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final screenHeight = MediaQuery.of(context).size.height;
+    final _screenWidth = MediaQuery.sizeOf(context)
+        .width; //sizeOf instead of 'of' as 'of has extra data
+    final _screenHeight = MediaQuery.sizeOf(context).height;
+    final _orientation = MediaQuery.orientationOf(context);
     return Scaffold(
       //the entire page
       appBar: AppBar(
@@ -92,45 +96,60 @@ class _EggTimerMainState extends State<EggTimerMain> {
         children: [
           Padding(
             //like a 'gap' in powerapps, pads around all sides of the children
-            padding: EdgeInsets.all(screenWidth / 50),
-            child: _buildHardnessSelector(screenWidth),
+            padding: EdgeInsets.all(_screenWidth / 50),
+            child: _buildHardnessSelector(_screenWidth, _screenHeight),
           ),
-          Expanded(child: _buildEggTimer(screenWidth, screenHeight)),
+          Expanded(
+              child: _buildEggTimer(_screenWidth, _screenHeight, _orientation)),
         ],
       ),
     );
   }
 
-  Widget _buildHardnessSelector(double screenWidth) {
+  Widget _buildHardnessSelector(double screenWidth, double screenHeight) {
     return Wrap(
       spacing: screenWidth / 20,
       alignment: WrapAlignment.center,
       children: List.generate(_hardness.length, (index) {
+        final double chipHeight = screenHeight * 0.05;
         //generate one item for each hardness option
-        return ChoiceChip(
-          label: Text(_hardness[index]),
-          selected: _selectedHardness == index,
-          selectedColor: _getProgressColor(),
-          onSelected: (bool selected) {
-            setState(() {
-              if (selected == true) {
-                if (_isTimerActive()) {
-                  _resetTimer();
+        return SizedBox(
+          height: chipHeight,
+          child: ChoiceChip(
+            label: Text(_hardness[index]),
+            selected: _selectedHardness == index,
+            selectedColor: _getProgressColor(),
+            onSelected: (bool selected) {
+              setState(() {
+                if (selected == true) {
+                  if (_isTimerActive()) {
+                    _resetTimer();
+                  }
+                  _selectedHardness = index;
+                  _boilTime = _boilTimes[_selectedHardness];
+                  _seconds = _boilTime;
                 }
-                _selectedHardness = index;
-                _boilTime = _boilTimes[_selectedHardness];
-                _seconds = _boilTime;
-              }
-            });
-          },
+              });
+            },
+          ),
         );
       }),
     );
   }
 
-  Widget _buildEggTimer(double screenWidth, double screenHeight) {
-    final eggWidth = screenWidth * 0.5;
-    final eggHeight = screenHeight * 0.35;
+  Widget _buildEggTimer(
+      double screenWidth, double screenHeight, Orientation orientation) {
+    final double eggWidth;
+    final double eggHeight;
+
+    if (orientation == Orientation.portrait) {
+      eggWidth = screenWidth * 0.5;
+      eggHeight = screenHeight * 0.35;
+    } else {
+      eggWidth = screenWidth * 0.15;
+      eggHeight = eggWidth * 1.5;
+    }
+
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -175,7 +194,7 @@ class _EggTimerMainState extends State<EggTimerMain> {
             child: Text(
               _isTimerActive() ? 'Stop' : 'Boil Em!',
               style: TextStyle(
-                fontSize: screenHeight/25,
+                fontSize: screenHeight / 25,
                 fontWeight: FontWeight.bold,
                 color: Colors.black,
               ),
